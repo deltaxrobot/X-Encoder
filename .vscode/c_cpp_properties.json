@@ -10,9 +10,9 @@
             "includePath": [
                 "F:/Arduino/XEncoder/include",
                 "F:/Arduino/XEncoder/src",
+                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/cores/arduino",
                 "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                 "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                 "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                 "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
@@ -24,9 +24,9 @@
                 "path": [
                     "F:/Arduino/XEncoder/include",
                     "F:/Arduino/XEncoder/src",
+                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/cores/arduino",
                     "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
                     "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                     "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
                     "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
