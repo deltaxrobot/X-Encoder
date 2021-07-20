@@ -57,6 +57,8 @@ void loop()
     }
   }
 
+  
+
   serial_execute();
 }
 
@@ -86,6 +88,23 @@ bool fast_read_pin(uint8_t pin)
     return true;
   return false;
 }
+void fast_write_pin(uint8_t pin, uint8_t val) {
+	uint8_t bit = digitalPinToBitMask(pin);
+	uint8_t port = digitalPinToPort(pin);
+	volatile uint8_t *out;
+
+	out = portOutputRegister(port);
+	uint8_t oldSREG = SREG;
+	cli();
+
+	if (val == LOW) {
+		*out &= ~bit;
+	} else {
+		*out |= bit;
+	}
+
+	SREG = oldSREG;
+}
 
 void intterupt_a()
 {
@@ -97,16 +116,16 @@ void intterupt_a()
   {
     absolute_pulse--;
   }
+  if (absolute_pulse % 256 == 0)
+  {
+    led_blink = !led_blink;
+    fast_write_pin(LED_BUILTIN, led_blink);
+  }
 }
 
 ISR(TIMER1_COMPA_vect)
 {
   timer_cycle += 1;
-  if (timer_cycle % 100 == 0)
-  {
-    led_blink = !led_blink;
-    digitalWrite(LED_BUILTIN, led_blink);
-  }
   if (timer_cycle == period)
   {
     timer_cycle = 0;
