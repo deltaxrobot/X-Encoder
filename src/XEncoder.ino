@@ -187,14 +187,7 @@ void serial_execute()
 
   String message_buffer = received_string.substring(0, 4);
 
-  if (message_buffer == "M315")
-  {
-    absolute_pulse = 0;
-    last_absolute_pulse = 0;
-    incremental_pulse = 0;
-    Serial.println("Ok");
-  }
-  else if (message_buffer == "M316")
+  if (message_buffer == "M316")
   {
     float _val = received_string.substring(5).toFloat();
     if (_val == 0)
@@ -205,6 +198,9 @@ void serial_execute()
     {
       is_absolute_mode = false;
     }
+    absolute_pulse = 0;
+    last_absolute_pulse = 0;
+    incremental_pulse = 0;
     Serial.println("Ok");
   }
   else if (message_buffer == "M317")
