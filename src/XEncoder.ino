@@ -1,8 +1,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-#define DIA 64   //diameter (mm)
-#define PPR 1024 //pulse per revolution
 #define EEPROM_ADD 10
 
 #define PIN_A 2
@@ -21,7 +19,7 @@ int64_t last_absolute_pulse;
 int32_t incremental_pulse;
 long period;
 long timer_cycle;
-float ratio = 1.0;
+float ratio = 5.12;
 bool e_stt;
 bool is_auto_send_e_stt;
 bool is_absolute_mode = true;
@@ -31,8 +29,6 @@ void setup()
 {
   EEPROM.begin();
   EEPROM.get(EEPROM_ADD, ratio);
-  if (ratio == 0)
-    ratio = 1.0;
 
   Serial.begin(115200);
   pinMode(PIN_A, INPUT_PULLUP);
@@ -42,6 +38,9 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(PIN_A), intterupt_a, RISING);
 
   init_timer1();
+
+  if (ratio == 0)
+    ratio = 5.12;
   //Serial.println(sizeof(absolute_pulse), 10);
 }
 
@@ -56,9 +55,6 @@ void loop()
       Serial.println(!e_stt);
     }
   }
-
-  
-
   serial_execute();
 }
 
@@ -159,16 +155,6 @@ ISR(TIMER1_COMPA_vect)
 void serial_execute()
 {
 
-  //Serial.flush();
-  // received_string = Serial.readStringUntil('\n', Serial.available());
-  // int last_index = received_string.length() - 1;
-  // if (received_string[last_index] == '\n')
-  // {
-  //   is_string_completed = true;
-  //   received_string.remove(last_index);
-  // } else {
-  //   Serial.println(received_string);
-  // }
   while (Serial.available())
   {
     char inChar = (char)Serial.read();
@@ -186,7 +172,7 @@ void serial_execute()
     return;
 
   String message_buffer = received_string.substring(0, 4);
-
+   //M316 select mode: 0 - absolute mode, 1 - relative mode, eg: M316 0
   if (message_buffer == "M316")
   {
     float _val = received_string.substring(5).toFloat();
@@ -203,7 +189,9 @@ void serial_execute()
     incremental_pulse = 0;
     Serial.println("Ok");
   }
-  else if (message_buffer == "M317")
+  //M317 T[time]: return pulses every [time] (ms)
+  //M317 : return current pulses number
+  else if (message_buffer == "M317") 
   {
     String keyval = received_string.substring(5);
     if (keyval == "")
@@ -233,7 +221,7 @@ void serial_execute()
         }
         else
         {
-          Serial.println(incremental_pulse / 10, 2);
+          Serial.println(incremental_pulse / ratio, 2);
         }
       }
     }
@@ -244,6 +232,7 @@ void serial_execute()
       turn_on_timer1;
     }
   }
+  //M318 [num] : enter the ratio PULSES_PER_MM
   else if (message_buffer == "M318")
   {
     float _ra = received_string.substring(6).toFloat();
@@ -258,6 +247,8 @@ void serial_execute()
     }
     Serial.println("Ok");
   }
+  // M319 V: đọc cảm biến tiệm cận rồi in ra giá trị hiện tại của cảm biến (0 - 1)
+  // M319 T: tự động in ra giá trị khi có thay đổi
   else if (message_buffer == "M319")
   {
     char mode = received_string.charAt(5);
@@ -279,7 +270,7 @@ void serial_execute()
 }
 
 // WARNING: You may need these function to build
-
+//Print.cpp
 // size_t Print::println(int64_t number, int base)
 // {
 //     size_t n = 0;

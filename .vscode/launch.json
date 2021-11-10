@@ -43,6 +43,16 @@
             "projectEnvName": "pro16MHzatmega328",
             "toolchainBinDir": "C:/Users/Minh Hieu/.platformio/packages/toolchain-atmelavr/bin",
             "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug (without uploading)",
+            "executable": "F:/Arduino/XEncoder/.pio/build/pro16MHzatmega328/firmware.elf",
+            "projectEnvName": "pro16MHzatmega328",
+            "toolchainBinDir": "C:/Users/Minh Hieu/.platformio/packages/toolchain-atmelavr/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "loadMode": "manual"
         }
     ]
 }
