@@ -164,13 +164,22 @@ void serial_execute()
       is_string_completed = true;
       break;
     }
-
-    received_string += inChar;
+    else if (inChar != '\r' && inChar != '\t')
+    {
+      received_string += inChar;
+    }
   }
 
   if (!is_string_completed)
     return;
 
+  if (received_string == "IsXEncoder") {
+    Serial.println("YesXEncoder");
+    is_string_completed = false;
+    received_string = "";
+    return;
+  }
+  
   String message_buffer = received_string.substring(0, 4);
    //M316 select mode: 0 - absolute mode, 1 - relative mode, eg: M316 0
   if (message_buffer == "M316")
@@ -270,6 +279,12 @@ void serial_execute()
 }
 
 // WARNING: You may need these function to build
+//Print.h
+    // size_t println(int64_t number, int base);
+    // size_t print(int64_t number, int base);
+    // size_t println(uint64_t number, int base);
+    // size_t print(uint64_t number, int base);
+
 //Print.cpp
 // size_t Print::println(int64_t number, int base)
 // {
