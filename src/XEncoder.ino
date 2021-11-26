@@ -1,346 +1,343 @@
-#include <Arduino.h>
-#include <EEPROM.h>
+#define ENDSTOP_PIN A0
 
-#define EEPROM_ADD 10
+#define DIR_PIN 10
+#define STEP_PIN 11
+#define EN_PIN 12
 
-#define PIN_A 2
-#define PIN_B 3
-#define PIN_E 4
+#define LED_PIN 13
 
 #define COMPARE_VALUE_TIMER OCR1A
-#define turn_on_timer1 (TIMSK1 |= (1 << OCIE1A))
-#define turn_off_timer1 (TIMSK1 &= ~(1 << OCIE1A))
 
-bool is_string_completed = false;
-String received_string = "";
+#define TurnOnTimer1 (TIMSK1 |= (1 << OCIE1A))
+#define TurnOffTimer1 (TIMSK1 &= ~(1 << OCIE1A))
 
-volatile int64_t absolute_pulse;
-int64_t last_absolute_pulse;
-int32_t incremental_pulse;
-long period;
-long timer_cycle;
-float ratio = 5.12;
-bool e_stt;
-bool is_auto_send_e_stt;
-bool is_absolute_mode = true;
-bool led_blink = false;
+#define COMMAND_PORT Serial
+
+#define DEFAULT_ACCELERATION 900 // mm/s2
+
+#define MAX_SPEED 85 // mm/s
+#define DEFAULT_SPEED 30
+#define HOMING_SPEED 20
+#define BEGIN_SPEED 30
+
+#define MAX_POSITION 300
+
+#define STEP_PER_MM 240
+
+#define SPEED_TO_CYCLE(x) (1000000.0 / (STEP_PER_MM * x))
+
+#include "MultiThread.h"
+
+String inputString;
+bool stringComplete;
+
+float DesireSpeed;
+float OldSpeed;
+float LinearSpeed;
+float Accel;
+float DesirePosition;
+float CurrentPosition;
+long DesireSteps;
+long PassedSteps;
+unsigned long PassedTime;
+long AccelSteps;
+float TempCycle;
+
+bool isEnding = false;
+bool isHoming = false;
+bool isMoving = false;
+bool blink = false;
+
+MultiThread LedBlinkScheduler;
 
 void setup()
 {
-  EEPROM.begin();
-  EEPROM.get(EEPROM_ADD, ratio);
-
-  Serial.begin(115200);
-  pinMode(PIN_A, INPUT_PULLUP);
-  pinMode(PIN_B, INPUT_PULLUP);
-  pinMode(PIN_E, INPUT_PULLUP);
-  pinMode(LED_BUILTIN, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(PIN_A), intterupt_a, RISING);
-
-  init_timer1();
-
-  if (ratio == 0)
-    ratio = 5.12;
-  //Serial.println(sizeof(absolute_pulse), 10);
+	COMMAND_PORT.begin(115200);
+	IOInit();
+	setValue();
+	TimerInit();
 }
 
 void loop()
 {
-  if (is_auto_send_e_stt)
-  {
-    bool _e_stt = fast_read_pin(PIN_E);
-    if (_e_stt != e_stt)
-    {
-      e_stt = _e_stt;
-      Serial.println(!e_stt);
-    }
-  }
-  serial_execute();
+	Home();
+	SerialExecute();
+	SliderExecute();
+	LedBlink();
 }
 
-void init_timer1()
+void IOInit()
 {
-  noInterrupts();
-
-  TCCR1A = TCCR1B = TCNT1 = 0;
-  TCCR1B |= (1 << WGM12);
-  TCCR1B |= (1 << CS10);
-  TCCR1A &= ~((1 << COM1A1) | (1 << COM1A0) | (1 << COM1B1) | (1 << COM1B0));
-
-  TCCR1B &= ~(1 << CS11);
-  TCCR1B |= (1 << CS10);
-
-  COMPARE_VALUE_TIMER = 15999;
-
-  interrupts();
+	pinMode(ENDSTOP_PIN, INPUT_PULLUP);
+	pinMode(DIR_PIN, OUTPUT);
+	pinMode(STEP_PIN, OUTPUT);
+	pinMode(EN_PIN, OUTPUT);
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(EN_PIN, 1);
 }
 
-bool fast_read_pin(uint8_t pin)
+void setValue()
 {
-  uint8_t bit = digitalPinToBitMask(pin);
-  uint8_t port = digitalPinToPort(pin);
+	COMMAND_PORT.println("Begin:");
+	DesireSpeed = OldSpeed = DEFAULT_SPEED;
+	Accel = DEFAULT_ACCELERATION;
 
-  if (*portInputRegister(port) & bit)
-    return true;
-  return false;
+	DesirePosition = 0;
+	CurrentPosition = 0;
+	DesireSteps = 0;
+	PassedSteps = 0;
 }
-void fast_write_pin(uint8_t pin, uint8_t val) {
-	uint8_t bit = digitalPinToBitMask(pin);
-	uint8_t port = digitalPinToPort(pin);
-	volatile uint8_t *out;
 
-	out = portOutputRegister(port);
-	uint8_t oldSREG = SREG;
-	cli();
+void TimerInit()
+{
+	noInterrupts();
 
-	if (val == LOW) {
-		*out &= ~bit;
-	} else {
-		*out |= bit;
+	// Reset register relate to Timer 1
+	// Reset register relate
+	TCCR1A = TCCR1B = TCNT1 = 0;
+	// Set CTC mode to Timer 1
+	TCCR1B |= (1 << WGM12);
+	// Set prescaler 1 to Timer 1
+	TCCR1B |= (1 << CS10);
+	//Normal port operation, OCxA disconnected
+	TCCR1A &= ~((1 << COM1A1) | (1 << COM1A0) | (1 << COM1B1) | (1 << COM1B0));
+
+	interrupts();
+}
+
+void LedBlink()
+{
+	if (!blink)
+	{
+		digitalWrite(LED_BUILTIN, 0);
+		return;
 	}
 
-	SREG = oldSREG;
+	RUN_EVERY(LedBlinkScheduler, COMPARE_VALUE_TIMER / 16);
+	digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 }
 
-void intterupt_a()
+void Home()
 {
-  if (fast_read_pin(PIN_B))
-  {
-    absolute_pulse++;
-  }
-  else
-  {
-    absolute_pulse--;
-  }
-  if (absolute_pulse % 256 == 0)
-  {
-    led_blink = !led_blink;
-    fast_write_pin(LED_BUILTIN, led_blink);
-  }
+	if (isHoming && !digitalRead(ENDSTOP_PIN))
+	{
+		TurnOffTimer1;
+		isHoming = false;
+		isMoving = false;
+		blink = false;
+		DesirePosition = 0;
+		CurrentPosition = 0;
+		DesireSteps = 0;
+		PassedSteps = 0;
+		AccelSteps = 0;
+		digitalWrite(EN_PIN, 0);
+		COMMAND_PORT.println("Ok");
+	}
+}
+
+void SliderExecute()
+{
+
+	//speed
+	if (DesireSpeed < 0.01 && DesireSpeed > -0.01)
+	{
+		DesireSpeed = 0;
+	}
+
+	if (DesireSpeed != 0)
+	{
+		DesireSpeed = abs(DesireSpeed);
+	}
+
+	if (DesireSpeed > MAX_SPEED)
+	{
+		DesireSpeed = MAX_SPEED;
+	}
+
+	//position
+	if (DesirePosition > MAX_POSITION) DesirePosition = MAX_POSITION;
+
+	if (DesirePosition == CurrentPosition)
+		return;
+
+	isMoving = true;
+
+	if (DesirePosition > CurrentPosition)
+	{
+		digitalWrite(DIR_PIN, 1);
+		DesireSteps = roundf((DesirePosition - CurrentPosition) * STEP_PER_MM);
+	}
+	else
+	{
+		digitalWrite(DIR_PIN, 0);
+		DesireSteps = roundf((CurrentPosition - DesirePosition) * STEP_PER_MM);
+	}
+	CaculateLinearSpeed();
+	FinishMoving();
+	TempCycle = SPEED_TO_CYCLE(LinearSpeed);
+	setIntCycle(TempCycle);
+
+	digitalWrite(EN_PIN, 0);
+	TurnOnTimer1;
+}
+
+//intCycle us
+void setIntCycle(float intCycle)
+{
+	int prescaler;
+
+	if (intCycle > 4000)
+	{
+		TCCR1B |= (1 << CS11);
+		TCCR1B &= ~(1 << CS10);
+		prescaler = 8;
+	}
+	else
+	{
+		TCCR1B &= ~(1 << CS11);
+		TCCR1B |= (1 << CS10);
+		prescaler = 1;
+	}
+
+	COMPARE_VALUE_TIMER = roundf(intCycle * 16 / prescaler) - 1;
+	//COMPARE_VALUE_TIMER = roundf(intCycle * F_CPU / (1000000.0 * prescaler)) - 1;
 }
 
 ISR(TIMER1_COMPA_vect)
 {
-  timer_cycle += 1;
-  if (timer_cycle == period)
-  {
-    timer_cycle = 0;
-    Serial.print('P');
-    if (is_absolute_mode)
-    {
-      if (ratio == 1)
-      {
-        Serial.println(absolute_pulse, 10);
-      }
-      else
-      {
-        Serial.println(absolute_pulse / ratio, 2);
-      }
-    }
-    else
-    {
-      if (ratio == 1)
-      {
-        Serial.println(absolute_pulse - last_absolute_pulse, 10);
-      }
-      else
-      {
-        Serial.println((absolute_pulse - last_absolute_pulse) / ratio, 2);
-      }
-    }
-    last_absolute_pulse = absolute_pulse;
-  }
+	if (isMoving)
+	{
+		if (PassedSteps == DesireSteps) return;
+
+		digitalWrite(STEP_PIN, 0);
+		delayMicroseconds(3);
+		digitalWrite(STEP_PIN, 1);
+
+		PassedSteps++;
+		PassedTime += TempCycle;
+		if (LinearSpeed < DesireSpeed && !isEnding)
+			AccelSteps++;
+	}
 }
 
-void serial_execute()
+void FinishMoving()
 {
-
-  while (Serial.available())
-  {
-    char inChar = (char)Serial.read();
-
-    if (inChar == '\n')
-    {
-      is_string_completed = true;
-      break;
-    }
-    else if (inChar != '\r' && inChar != '\t')
-    {
-      received_string += inChar;
-    }
-  }
-
-  if (!is_string_completed)
-    return;
-
-  if (received_string == "IsXEncoder") {
-    Serial.println("YesXEncoder");
-    is_string_completed = false;
-    received_string = "";
-    return;
-  }
-  
-  String message_buffer = received_string.substring(0, 4);
-   //M316 select mode: 0 - absolute mode, 1 - relative mode, eg: M316 0
-  if (message_buffer == "M316")
-  {
-    float _val = received_string.substring(5).toFloat();
-    if (_val == 0)
-    {
-      is_absolute_mode = true;
-    }
-    else if (_val == 1)
-    {
-      is_absolute_mode = false;
-    }
-    absolute_pulse = 0;
-    last_absolute_pulse = 0;
-    incremental_pulse = 0;
-    Serial.println("Ok");
-  }
-  //M317 T[time]: return pulses every [time] (ms)
-  //M317 : return current pulses number
-  else if (message_buffer == "M317") 
-  {
-    String keyval = received_string.substring(5);
-    if (keyval == "")
-    {
-      turn_off_timer1;
-
-      Serial.print('P');
-      if (is_absolute_mode)
-      {
-        if (ratio == 1)
-        {
-          Serial.println(absolute_pulse, 10);
-        }
-        else
-        {
-          Serial.println(absolute_pulse / ratio, 2);
-        }
-        last_absolute_pulse = absolute_pulse;
-      }
-      else
-      {
-        incremental_pulse = absolute_pulse - last_absolute_pulse;
-        last_absolute_pulse = absolute_pulse;
-        if (ratio == 1)
-        {
-          Serial.println(incremental_pulse, 10);
-        }
-        else
-        {
-          Serial.println(incremental_pulse / ratio, 2);
-        }
-      }
-    }
-    else
-    {
-      period = received_string.substring(6).toInt(); //eg: keyval = "T100" -> period = 100
-      Serial.println("Ok");
-      turn_on_timer1;
-    }
-  }
-  //M318 [num] : enter the ratio PULSES_PER_MM
-  else if (message_buffer == "M318")
-  {
-    float _ra = received_string.substring(6).toFloat();
-    if (_ra != ratio && _ra != 0)
-    {
-      ratio = _ra;
-      EEPROM.put(EEPROM_ADD, ratio);
-    }
-    else
-    {
-      Serial.println(ratio);
-    }
-    Serial.println("Ok");
-  }
-  // M319 V: đọc cảm biến tiệm cận rồi in ra giá trị hiện tại của cảm biến (0 - 1)
-  // M319 T: tự động in ra giá trị khi có thay đổi
-  else if (message_buffer == "M319")
-  {
-    char mode = received_string.charAt(5);
-    if (mode == 'V')
-    {
-      is_auto_send_e_stt = false;
-      e_stt = fast_read_pin(PIN_E);
-      Serial.println(!e_stt);
-    }
-    else if (mode == 'T')
-    {
-      is_auto_send_e_stt = true;
-      Serial.println("Ok");
-    }
-  }
-
-  is_string_completed = false;
-  received_string = "";
+	if (isMoving && PassedSteps == DesireSteps)
+	{
+		CurrentPosition = DesirePosition;
+		AccelSteps = 0;
+		PassedTime = 0;
+		LinearSpeed = 0;
+		DesireSteps = 0;
+		PassedSteps = 0;
+		AccelSteps = 0;
+		isMoving = false;
+		isEnding = false;
+		blink = false;
+		TurnOffTimer1;
+		COMMAND_PORT.println("Ok");
+	}
 }
 
-// WARNING: You may need these function to build
-//Print.h
-    // size_t println(int64_t number, int base);
-    // size_t print(int64_t number, int base);
-    // size_t println(uint64_t number, int base);
-    // size_t print(uint64_t number, int base);
+void CaculateLinearSpeed()
+{
+	if (DesireSteps - PassedSteps <= AccelSteps)
+	{
+		if (!isEnding) 
+		{
+			isEnding = true;
+			PassedTime = 0;
+			if (DesireSpeed > LinearSpeed) DesireSpeed = LinearSpeed;
+		}
+		LinearSpeed = DesireSpeed - Accel * PassedTime / 1000000;
+		return;
+	}
 
-//Print.cpp
-// size_t Print::println(int64_t number, int base)
-// {
-//     size_t n = 0;
-//     n += print(number, base);
-//     n += println();
-//     return n;
-// }
+	if (LinearSpeed < DesireSpeed)
+	{
+		LinearSpeed = BEGIN_SPEED + Accel * PassedTime / 1000000;
+	}
+	else
+	{
+		LinearSpeed = DesireSpeed;
+	}
+}
 
-// size_t Print::print(int64_t number, int base)
-// {
-//     size_t n = 0;
-//     if (number < 0)
-//     {
-//         write('-');
-//         number = -number;
-//         n++;
-//     }
-//     n += print((uint64_t)number, base);
-//     return n;
-// }
+void SerialExecute()
+{
+	while (COMMAND_PORT.available())
+	{
+		char inChar = (char)COMMAND_PORT.read();
 
-// size_t Print::println(uint64_t number, int base)
-// {
-//     size_t n = 0;
-//     n += print((uint64_t)number, base);
-//     n += println();
-//     return n;
-// }
+		if (inChar == '\n')
+		{
+			stringComplete = true;
+			break;
+		}
 
-// size_t Print::print(uint64_t number, int base)
-// {
-//     size_t n = 0;
-//     unsigned char buf[64];
-//     uint8_t i = 0;
+		inputString += inChar;
+	}
 
-//     if (number == 0)
-//     {
-//         n += print((char)'0');
-//         return n;
-//     }
+	if (!stringComplete)
+		return;
 
-//     if (base < 2) base = 2;
-//     else if (base > 16) base = 16;
+	if (inputString == "IsSliderX")
+	{
+		COMMAND_PORT.println("YesSliderX");
+		inputString = "";
+		stringComplete = false;
+		return;
+	}
 
-//     while (number > 0)
-//     {
-//         uint64_t q = number/base;
-//         buf[i++] = number - q*base;
-//         number = q;
-//     }
+	String messageBuffer = inputString.substring(0, 4);
 
-//     for (; i > 0; i--)
-//     n += write((char) (buf[i - 1] < 10 ?
-//     '0' + buf[i - 1] :
-//     'A' + buf[i - 1] - 10));
+	if (messageBuffer == "M320")
+	{
+		isHoming = true;
+		blink = true;
+		DesireSpeed = HOMING_SPEED;
+		DesirePosition = -1000;
+	}
 
-//     return n;
-// }
+	if (messageBuffer == "M321")
+	{
+		DesireSpeed = inputString.substring(5).toFloat();
+		OldSpeed = DesireSpeed;
+		COMMAND_PORT.println("Ok");
+	}
+
+	if (messageBuffer == "M322")
+	{
+		DesirePosition = inputString.substring(5).toFloat();
+
+		if (DesirePosition < 0) DesirePosition = 0;
+		if (DesirePosition == CurrentPosition)
+		{
+			COMMAND_PORT.println("Ok");
+		}
+		else
+		{
+			LinearSpeed = DesireSpeed / 5;
+			TempCycle = DesireSpeed * SPEED_TO_CYCLE(DesireSpeed) / LinearSpeed;
+			setIntCycle(TempCycle);
+			blink = true;
+			DesireSpeed = OldSpeed;
+		}
+	}
+
+	if (messageBuffer == "M323")
+	{
+		digitalWrite(EN_PIN, 1);
+		TurnOffTimer1;
+		COMMAND_PORT.println("Ok");
+	}
+
+	if (messageBuffer == "M324")
+	{
+		Accel = inputString.substring(5).toFloat();
+		COMMAND_PORT.println("Ok");
+	}
+
+	inputString = "";
+	stringComplete = false;
+}
