@@ -50,7 +50,6 @@ void setup()
   }
 
   Serial.println("Begin:");
-  Serial.println(pulse_per_mm);
 }
 
 void loop()
