@@ -60,6 +60,7 @@ void loop()
     if (_e_stt != e_stt)
     {
       e_stt = _e_stt;
+      Serial.print('V');
       Serial.println(!e_stt);
     }
   }
@@ -124,11 +125,11 @@ ISR(TIMER1_COMPA_vect)
 
     if (is_absolute_mode)
     {
-      Serial.println(absolute_pulse / pulse_per_mm, 4);
+      Serial.println(absolute_pulse / pulse_per_mm, 3);
     }
     else
     {
-      Serial.println((absolute_pulse - last_absolute_pulse) / pulse_per_mm, 4);
+      Serial.println((absolute_pulse - last_absolute_pulse) / pulse_per_mm, 3);
     }
     last_absolute_pulse = absolute_pulse;
   }
@@ -154,6 +155,7 @@ void serial_execute()
   if (!is_string_completed)
     return;
 
+  bool is_m317_executing = is_timer_running;
   is_timer_running = false;
   turn_off_timer1;
 
@@ -183,6 +185,8 @@ void serial_execute()
     absolute_pulse = last_absolute_pulse = 0;
     incremental_pulse = 0;
     Serial.println("Ok");
+
+    is_m317_executing = false;
   }
   else if (message_buffer == "M317")
   {
@@ -191,15 +195,16 @@ void serial_execute()
       Serial.print('P');
       if (is_absolute_mode)
       {
-        Serial.println(absolute_pulse / pulse_per_mm, 4);
+        Serial.println(absolute_pulse / pulse_per_mm, 3);
         last_absolute_pulse = absolute_pulse;
       }
       else
       {
         incremental_pulse = absolute_pulse - last_absolute_pulse;
         last_absolute_pulse = absolute_pulse;
-        Serial.println(incremental_pulse / pulse_per_mm, 4);
+        Serial.println(incremental_pulse / pulse_per_mm, 3);
       }
+      is_m317_executing = false;
     }
     else
     {
@@ -207,9 +212,8 @@ void serial_execute()
       if (_per > 0)
         period = _per;
       timer_counter = 0;
+      is_m317_executing = true;
       Serial.println("Ok");
-      is_timer_running = true;
-      turn_on_timer1;
     }
   }
   else if (message_buffer == "M318")
@@ -217,8 +221,6 @@ void serial_execute()
     pulse_per_mm = received_string.substring(6).toFloat();
     EEPROM.put(PULSE_PER_MM_ADDRESS, pulse_per_mm);
     Serial.println("Ok");
-    is_timer_running = true;
-    turn_on_timer1;
   }
   else if (message_buffer == "M319")
   {
@@ -227,6 +229,7 @@ void serial_execute()
     {
       is_auto_send_e_stt = false;
       e_stt = READ(PIN_E);
+      Serial.print('V');
       Serial.println(!e_stt);
     }
     else if (mode == 'T')
@@ -234,18 +237,21 @@ void serial_execute()
       is_auto_send_e_stt = true;
       Serial.println("Ok");
     }
-
-    is_timer_running = true;
-    turn_on_timer1;
   }
   else if (message_buffer == "M314")
   {
     absolute_pulse = last_absolute_pulse = 0;
     incremental_pulse = 0;
     timer_counter = 0;
+    is_m317_executing = false;
     Serial.println("Ok");
   }
 
+  if (is_m317_executing) 
+  {
+    is_timer_running = true;
+    turn_on_timer1;
+  }
   is_string_completed = false;
   received_string = "";
 }
