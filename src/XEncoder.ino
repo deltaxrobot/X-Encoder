@@ -48,8 +48,6 @@ void setup()
     pulse_per_mm = DEFAULT_PULSE_PER_MM;
     EEPROM.put(PULSE_PER_MM_ADDRESS, pulse_per_mm);
   }
-
-  Serial.println("Begin:");
 }
 
 void loop()
@@ -173,19 +171,21 @@ void serial_execute()
 
   if (message_buffer == "M316")
   {
-    float _val = received_string.substring(5).toFloat();
-    if (_val == 0)
-    {
-      is_absolute_mode = true;
-    }
-    else if (_val == 1)
-    {
-      is_absolute_mode = false;
-    }
     absolute_pulse = last_absolute_pulse = 0;
     incremental_pulse = 0;
+    if (received_string.length() > 4)
+    {
+      float _val = received_string.substring(5).toFloat();
+      if (_val == 0)
+      {
+        is_absolute_mode = true;
+      }
+      else if (_val == 1)
+      {
+        is_absolute_mode = false;
+      }
+    }
     Serial.println("Ok");
-
     is_m317_executing = false;
   }
   else if (message_buffer == "M317")
@@ -238,16 +238,8 @@ void serial_execute()
       Serial.println("Ok");
     }
   }
-  else if (message_buffer == "M314")
-  {
-    absolute_pulse = last_absolute_pulse = 0;
-    incremental_pulse = 0;
-    timer_counter = 0;
-    is_m317_executing = false;
-    Serial.println("Ok");
-  }
 
-  if (is_m317_executing) 
+  if (is_m317_executing)
   {
     is_timer_running = true;
     turn_on_timer1;

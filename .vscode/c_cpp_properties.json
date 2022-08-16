@@ -8,34 +8,34 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "F:/Arduino/XEncoder/include",
-                "F:/Arduino/XEncoder/src",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/cores/arduino",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "f:/DriveSync/Firmware/XEncoder/include",
+                "f:/DriveSync/Firmware/XEncoder/src",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 ""
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "F:/Arduino/XEncoder/include",
-                    "F:/Arduino/XEncoder/src",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/cores/arduino",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                    "C:/Users/Minh Hieu/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "f:/DriveSync/Firmware/XEncoder/include",
+                    "f:/DriveSync/Firmware/XEncoder/src",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    "C:/Users/win/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     ""
                 ]
             },
             "defines": [
-                "PLATFORMIO=50203",
+                "PLATFORMIO=60104",
                 "ARDUINO_AVR_PRO",
                 "F_CPU=16000000L",
                 "ARDUINO_ARCH_AVR",
@@ -45,7 +45,7 @@
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",
-            "compilerPath": "C:/Users/Minh Hieu/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe",
+            "compilerPath": "C:/Users/win/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe",
             "compilerArgs": [
                 "-mmcu=atmega328p",
                 ""
